@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 217 71% 23%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 331 76% 35%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 270 67% 91%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 270 67% 91%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 217 71% 23%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-alma-lilac-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-alma-blue-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-alma-blue-500;
+}
+
+/* Smooth transitions */
+.transition-smooth {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+/* Glass effect */
+.glass-effect {
+  @apply bg-white/70 backdrop-blur-md border border-white/20;
+}
+
+/* Gradient backgrounds */
+.gradient-primary {
+  @apply bg-gradient-to-r from-alma-blue-900 to-alma-blue-700;
+}
+
+.gradient-accent {
+  @apply bg-gradient-to-r from-alma-magenta-700 to-alma-magenta-500;
+}
+
+.gradient-soft {
+  @apply bg-gradient-to-br from-alma-lilac-100 via-white to-alma-lilac-50;
+}
