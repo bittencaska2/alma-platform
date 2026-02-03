@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { Toaster } from '@/components/ui/toaster'
 
 export const metadata: Metadata = {
     title: 'Alma | Plataforma de Terapia Online',
@@ -16,6 +17,7 @@ export default function RootLayout({
         <html lang="pt-BR" suppressHydrationWarning>
             <body className="min-h-screen gradient-soft" suppressHydrationWarning>
                 {children}
+                <Toaster />
             </body>
         </html>
     )

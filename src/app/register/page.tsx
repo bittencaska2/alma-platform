@@ -201,11 +201,16 @@ function RegisterForm() {
                                     onChange={(e) => setAgeConfirmed(e.target.checked)}
                                     className="mt-1 rounded border-alma-lilac-300 text-alma-blue-900 focus:ring-alma-blue-500"
                                     disabled={isPending}
+                                    required
                                 />
                                 <label htmlFor="ageTerms" className="text-sm text-alma-blue-900/70">
                                     Declaro que sou maior de 18 anos e concordo com os{' '}
                                     <Link href="/terms" className="text-alma-magenta-700 hover:underline">
                                         Termos de Uso
+                                    </Link>{' '}
+                                    e a{' '}
+                                    <Link href="/privacy" className="text-alma-magenta-700 hover:underline">
+                                        Política de Privacidade
                                     </Link>.
                                 </label>
                             </div>

@@ -1,16 +1,15 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { ChatWindow } from '@/components/ui/ChatWindow'
 import {
     Heart,
     ArrowLeft,
     MessageCircle,
-    Send,
     Users
 } from 'lucide-react'
 
@@ -27,20 +26,38 @@ interface ChatRoom {
     }
 }
 
+interface Message {
+    id: string
+    room_id: string
+    sender_id: string
+    content: string
+    is_read: boolean
+    sent_at: string
+    read_at?: string | null
+}
+
 interface PsychologistChatProps {
     chatRooms: ChatRoom[]
     userId: string
+    initialMessages?: { [roomId: string]: Message[] }
 }
 
-export function PsychologistChat({ chatRooms, userId }: PsychologistChatProps) {
-    const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null)
-    const [message, setMessage] = useState('')
+export function PsychologistChat({
+    chatRooms,
+    userId,
+    initialMessages = {}
+}: PsychologistChatProps) {
+    const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(
+        chatRooms.length > 0 ? chatRooms[0] : null
+    )
 
-    const handleSendMessage = () => {
-        if (!message.trim() || !selectedRoom) return
-        // TODO: Implement real-time messaging with Supabase
-        console.log('Sending message:', message)
-        setMessage('')
+    const getInitials = (name: string) => {
+        return name
+            .split(' ')
+            .map(n => n[0])
+            .slice(0, 2)
+            .join('')
+            .toUpperCase()
     }
 
     return (
@@ -62,58 +79,57 @@ export function PsychologistChat({ chatRooms, userId }: PsychologistChatProps) {
                 </div>
             </header>
 
-            <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="grid lg:grid-cols-3 gap-6 h-[calc(100vh-180px)]">
-                    {/* Chat List */}
+            <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div className="grid lg:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
+                    {/* Patient List */}
                     <Card className="border-0 shadow-lg lg:col-span-1 overflow-hidden">
-                        <CardHeader className="border-b border-alma-lilac-100">
+                        <CardHeader className="border-b border-alma-lilac-100 py-4">
                             <CardTitle className="text-lg text-alma-blue-900 flex items-center gap-2">
-                                <Users className="w-5 h-5 text-alma-blue-900" />
+                                <Users className="w-5 h-5 text-alma-magenta-700" />
                                 Pacientes
+                                {chatRooms.length > 0 && (
+                                    <Badge variant="lilac">{chatRooms.length}</Badge>
+                                )}
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="p-0">
+                        <CardContent className="p-0 overflow-y-auto max-h-[calc(100vh-260px)]">
                             {chatRooms.length > 0 ? (
                                 <div className="divide-y divide-alma-lilac-100">
-                                    {chatRooms.map(room => {
-                                        const initials = room.patients.profiles.full_name
-                                            .split(' ')
-                                            .map(n => n[0])
-                                            .slice(0, 2)
-                                            .join('')
-                                            .toUpperCase()
-
-                                        return (
-                                            <button
-                                                key={room.id}
-                                                onClick={() => setSelectedRoom(room)}
-                                                className={`w-full p-4 text-left hover:bg-alma-lilac-50 transition-colors ${selectedRoom?.id === room.id ? 'bg-alma-lilac-100' : ''
-                                                    }`}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <Avatar className="w-12 h-12">
-                                                        <AvatarImage src={room.patients.profiles.photo_url || undefined} />
-                                                        <AvatarFallback className="bg-alma-lilac-200">{initials}</AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="font-medium text-alma-blue-900 truncate">
-                                                            {room.patients.profiles.full_name}
-                                                        </h4>
-                                                        <p className="text-sm text-alma-blue-900/50 truncate">
-                                                            Clique para abrir o chat
-                                                        </p>
-                                                    </div>
+                                    {chatRooms.map(room => (
+                                        <button
+                                            key={room.id}
+                                            onClick={() => setSelectedRoom(room)}
+                                            className={`w-full p-4 text-left hover:bg-alma-lilac-50 transition-colors ${selectedRoom?.id === room.id ? 'bg-alma-lilac-100' : ''
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="w-12 h-12">
+                                                    <AvatarImage src={room.patients.profiles.photo_url || undefined} />
+                                                    <AvatarFallback className="bg-alma-blue-900 text-white">
+                                                        {getInitials(room.patients.profiles.full_name)}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="font-medium text-alma-blue-900 truncate">
+                                                        {room.patients.profiles.full_name}
+                                                    </h4>
+                                                    <p className="text-sm text-alma-blue-900/50">
+                                                        Clique para abrir
+                                                    </p>
                                                 </div>
-                                            </button>
-                                        )
-                                    })}
+                                                {room.is_active && (
+                                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                                )}
+                                            </div>
+                                        </button>
+                                    ))}
                                 </div>
                             ) : (
                                 <div className="text-center py-12 px-4">
-                                    <MessageCircle className="w-12 h-12 mx-auto mb-3 text-alma-lilac-300" />
-                                    <p className="text-alma-blue-900/60 mb-4">Nenhum paciente ativo</p>
+                                    <Users className="w-12 h-12 mx-auto mb-3 text-alma-lilac-300" />
+                                    <p className="text-alma-blue-900/60 mb-2">Nenhum paciente</p>
                                     <p className="text-sm text-alma-blue-900/40">
-                                        Pacientes que agendarem consultas aparecerão aqui
+                                        Seus pacientes aparecerão aqui após agendarem consultas
                                     </p>
                                 </div>
                             )}
@@ -121,55 +137,22 @@ export function PsychologistChat({ chatRooms, userId }: PsychologistChatProps) {
                     </Card>
 
                     {/* Chat Window */}
-                    <Card className="border-0 shadow-lg lg:col-span-2 flex flex-col overflow-hidden">
+                    <div className="lg:col-span-2 h-full">
                         {selectedRoom ? (
-                            <>
-                                {/* Chat Header */}
-                                <div className="p-4 border-b border-alma-lilac-100 bg-white">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="w-10 h-10">
-                                            <AvatarImage src={selectedRoom.patients.profiles.photo_url || undefined} />
-                                            <AvatarFallback className="bg-alma-lilac-200">
-                                                {selectedRoom.patients.profiles.full_name.slice(0, 2).toUpperCase()}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <h4 className="font-medium text-alma-blue-900">
-                                                {selectedRoom.patients.profiles.full_name}
-                                            </h4>
-                                            <p className="text-xs text-green-600">Paciente</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Messages Area */}
-                                <div className="flex-1 p-4 overflow-y-auto bg-alma-lilac-50/50">
-                                    <div className="text-center py-8">
-                                        <p className="text-sm text-alma-blue-900/40">
-                                            Início da conversa com {selectedRoom.patients.profiles.full_name}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Message Input */}
-                                <div className="p-4 border-t border-alma-lilac-100 bg-white">
-                                    <div className="flex gap-2">
-                                        <Input
-                                            placeholder="Digite sua mensagem..."
-                                            value={message}
-                                            onChange={(e) => setMessage(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                            className="flex-1"
-                                        />
-                                        <Button onClick={handleSendMessage} disabled={!message.trim()}>
-                                            <Send className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            </>
+                            <ChatWindow
+                                roomId={selectedRoom.id}
+                                currentUserId={userId}
+                                otherUser={{
+                                    id: selectedRoom.patients.id,
+                                    name: selectedRoom.patients.profiles.full_name,
+                                    photoUrl: selectedRoom.patients.profiles.photo_url
+                                }}
+                                initialMessages={initialMessages[selectedRoom.id] || []}
+                                hasActivePackage={true}
+                            />
                         ) : (
-                            <div className="flex-1 flex items-center justify-center">
-                                <div className="text-center">
+                            <Card className="border-0 shadow-lg h-full flex items-center justify-center">
+                                <CardContent className="text-center">
                                     <MessageCircle className="w-16 h-16 mx-auto mb-4 text-alma-lilac-300" />
                                     <h3 className="text-lg font-medium text-alma-blue-900 mb-2">
                                         Selecione um paciente
@@ -177,10 +160,10 @@ export function PsychologistChat({ chatRooms, userId }: PsychologistChatProps) {
                                     <p className="text-sm text-alma-blue-900/60">
                                         Escolha um paciente na lista para iniciar o chat
                                     </p>
-                                </div>
-                            </div>
+                                </CardContent>
+                            </Card>
                         )}
-                    </Card>
+                    </div>
                 </div>
             </main>
         </div>

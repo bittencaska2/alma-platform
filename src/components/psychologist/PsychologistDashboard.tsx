@@ -1,31 +1,48 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
     Heart,
-    Calendar,
-    MessageCircle,
-    CreditCard,
-    Settings,
-    LogOut,
-    Bell,
-    ChevronRight,
-    Clock,
+    User,
     Users,
     DollarSign,
-    CalendarClock,
+    LogOut,
+    Bell,
     CheckCircle2
 } from 'lucide-react'
 import { signOut } from '@/lib/actions/auth'
+import { PsychologistProfileTab } from './PsychologistProfileTab'
+import { PsychologistPatientsTab } from './PsychologistPatientsTab'
+import { PsychologistFinancial } from './PsychologistFinancial'
 
-interface ScheduleSlot {
-    dayOfWeek: number
-    startTime: string
-    endTime: string
+interface Patient {
+    id: string
+    fullName: string
+    photoUrl?: string | null
+    lastAppointment?: string | null
+    nextAppointment?: string | null
+    status: 'active' | 'pending' | 'inactive'
+    totalSessions: number
+}
+
+interface Transaction {
+    id: string
+    gross_amount: number
+    psychologist_amount: number
+    platform_amount: number
+    social_donation: number
+    payment_status: 'pending' | 'paid' | 'failed' | 'refunded'
+    created_at: string
+    patients?: {
+        profiles: {
+            full_name: string
+        }
+    }
 }
 
 interface PsychologistDashboardProps {
@@ -33,16 +50,25 @@ interface PsychologistDashboardProps {
         id: string
         email: string
         fullName: string
-        photoUrl?: string
+        photoUrl?: string | null
         crp: string
+        bio?: string | null
+        education?: string | null
+        educationYear?: number | null
+        whatsapp?: string | null
     }
-    scheduleSlots?: ScheduleSlot[]
+    patients?: Patient[]
+    transactions?: Transaction[]
 }
 
-const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+export function PsychologistDashboard({
+    user,
+    patients = [],
+    transactions = []
+}: PsychologistDashboardProps) {
+    const [currentUser, setCurrentUser] = useState(user)
 
-export function PsychologistDashboard({ user, scheduleSlots = [] }: PsychologistDashboardProps) {
-    const initials = user.fullName
+    const initials = currentUser.fullName
         .split(' ')
         .map(n => n[0])
         .slice(0, 2)
@@ -53,17 +79,15 @@ export function PsychologistDashboard({ user, scheduleSlots = [] }: Psychologist
         await signOut()
     }
 
-    // Group slots by day
-    const slotsByDay: { [key: number]: string[] } = {}
-    scheduleSlots.forEach(slot => {
-        if (!slotsByDay[slot.dayOfWeek]) {
-            slotsByDay[slot.dayOfWeek] = []
-        }
-        slotsByDay[slot.dayOfWeek].push(slot.startTime)
-    })
+    const handleProfileUpdate = (updates: Partial<typeof user>) => {
+        setCurrentUser(prev => ({ ...prev, ...updates }))
+    }
 
-    const totalSlots = scheduleSlots.length
-    const configureDays = Object.keys(slotsByDay).length
+    // Calculate stats
+    const activePatients = patients.filter(p => p.status === 'active').length
+    const totalEarnings = transactions
+        .filter(t => t.payment_status === 'paid')
+        .reduce((sum, t) => sum + t.psychologist_amount, 0)
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-alma-lilac-50 via-white to-alma-lilac-100">
@@ -89,12 +113,12 @@ export function PsychologistDashboard({ user, scheduleSlots = [] }: Psychologist
 
                             <div className="flex items-center gap-3">
                                 <Avatar className="w-9 h-9">
-                                    <AvatarImage src={user.photoUrl} />
+                                    <AvatarImage src={currentUser.photoUrl || undefined} />
                                     <AvatarFallback className="bg-alma-lilac-200 text-sm">{initials}</AvatarFallback>
                                 </Avatar>
                                 <div className="hidden sm:block">
-                                    <p className="text-sm font-medium text-alma-blue-900">{user.fullName}</p>
-                                    <p className="text-xs text-alma-blue-900/60">CRP {user.crp}</p>
+                                    <p className="text-sm font-medium text-alma-blue-900">{currentUser.fullName}</p>
+                                    <p className="text-xs text-alma-blue-900/60">CRP {currentUser.crp}</p>
                                 </div>
                             </div>
                         </div>
@@ -103,12 +127,12 @@ export function PsychologistDashboard({ user, scheduleSlots = [] }: Psychologist
             </header>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Welcome Section */}
                 <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold text-alma-blue-900">
-                            Olá, {user.fullName.split(' ')[0]}! 👋
+                            Olá, {currentUser.fullName.split(' ')[0]}! 👋
                         </h1>
                         <p className="text-alma-blue-900/60 mt-1">
                             Painel do Psicólogo - Gerencie sua agenda e pacientes
@@ -120,210 +144,85 @@ export function PsychologistDashboard({ user, scheduleSlots = [] }: Psychologist
                     </Badge>
                 </div>
 
-                {/* Stats Grid */}
-                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <Card className="border-0 shadow-lg">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-alma-blue-900/60">Pacientes</p>
-                                    <p className="text-3xl font-bold text-alma-blue-900">0</p>
-                                </div>
-                                <div className="w-12 h-12 rounded-xl bg-alma-blue-100 flex items-center justify-center">
-                                    <Users className="w-6 h-6 text-alma-blue-900" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-0 shadow-lg">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-alma-blue-900/60">Consultas Hoje</p>
-                                    <p className="text-3xl font-bold text-alma-blue-900">0</p>
-                                </div>
-                                <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-                                    <Calendar className="w-6 h-6 text-green-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-0 shadow-lg">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-alma-blue-900/60">Este Mês</p>
-                                    <p className="text-3xl font-bold text-alma-blue-900">R$ 0</p>
-                                </div>
-                                <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
-                                    <DollarSign className="w-6 h-6 text-amber-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-0 shadow-lg bg-gradient-to-br from-alma-magenta-700 to-alma-magenta-800 text-white">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-white/70">Impacto Social</p>
-                                    <p className="text-3xl font-bold">R$ 0</p>
-                                    <p className="text-xs text-white/60 mt-1">doados via Meraki</p>
-                                </div>
-                                <Heart className="w-8 h-8 text-white/80" />
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                    <Link href="/psychologist/schedule">
-                        <Card className="hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer border-0 bg-gradient-to-br from-alma-blue-900 to-alma-blue-800 text-white">
-                            <CardContent className="p-6">
-                                <CalendarClock className="w-8 h-8 mb-3" />
-                                <h3 className="font-semibold text-lg">Gerenciar Agenda</h3>
-                                <p className="text-sm text-white/70 mt-1">Defina seus horários disponíveis</p>
-                            </CardContent>
-                        </Card>
-                    </Link>
-
-                    <Link href="/psychologist/appointments">
-                        <Card className="hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer border-0">
-                            <CardContent className="p-6">
-                                <Calendar className="w-8 h-8 mb-3 text-alma-magenta-700" />
-                                <h3 className="font-semibold text-lg text-alma-blue-900">Consultas</h3>
-                                <p className="text-sm text-alma-blue-900/60 mt-1">Veja suas próximas sessões</p>
-                            </CardContent>
-                        </Card>
-                    </Link>
-
-                    <Link href="/psychologist/chat">
-                        <Card className="hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer border-0">
-                            <CardContent className="p-6">
-                                <MessageCircle className="w-8 h-8 mb-3 text-green-600" />
-                                <h3 className="font-semibold text-lg text-alma-blue-900">Mensagens</h3>
-                                <p className="text-sm text-alma-blue-900/60 mt-1">Converse com pacientes</p>
-                            </CardContent>
-                        </Card>
-                    </Link>
-                </div>
-
-                {/* Content Grid */}
-                <div className="grid lg:grid-cols-3 gap-6">
-                    {/* Today's Schedule / Configured Slots */}
-                    <Card className="lg:col-span-2 border-0 shadow-lg">
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle className="text-lg text-alma-blue-900">
-                                Meus Horários Configurados
-                                {totalSlots > 0 && (
-                                    <Badge variant="lilac" className="ml-2">{totalSlots} slots</Badge>
-                                )}
-                            </CardTitle>
-                            <Link href="/psychologist/schedule" className="text-sm text-alma-magenta-700 hover:underline flex items-center gap-1">
-                                Gerenciar <ChevronRight className="w-4 h-4" />
-                            </Link>
-                        </CardHeader>
-                        <CardContent>
-                            {totalSlots > 0 ? (
-                                <div className="space-y-4">
-                                    {Object.keys(slotsByDay).sort((a, b) => Number(a) - Number(b)).map(day => {
-                                        const dayIndex = Number(day)
-                                        const times = slotsByDay[dayIndex]
-                                        return (
-                                            <div key={day} className="flex items-start gap-4 p-3 bg-alma-lilac-50 rounded-xl">
-                                                <div className="w-12 h-12 rounded-xl bg-alma-blue-900 text-white flex flex-col items-center justify-center">
-                                                    <span className="text-xs font-medium">{dayNames[dayIndex]}</span>
-                                                </div>
-                                                <div className="flex-1">
-                                                    <p className="font-medium text-alma-blue-900 mb-2">
-                                                        {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'][dayIndex]}
-                                                    </p>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {times.sort().map(time => (
-                                                            <Badge key={time} variant="outline" className="text-xs">
-                                                                <Clock className="w-3 h-3 mr-1" />
-                                                                {time}
-                                                            </Badge>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 text-alma-blue-900/60">
-                                    <Clock className="w-12 h-12 mx-auto mb-3 text-alma-lilac-300" />
-                                    <p>Nenhum horário configurado ainda</p>
-                                    <Link href="/psychologist/schedule">
-                                        <Button className="mt-4" size="sm">
-                                            <CalendarClock className="w-4 h-4 mr-2" />
-                                            Configurar Horários
-                                        </Button>
-                                    </Link>
-                                </div>
+                {/* Quick Stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-white rounded-xl p-4 shadow-md">
+                        <p className="text-sm text-alma-blue-900/60">Pacientes Ativos</p>
+                        <p className="text-2xl font-bold text-alma-blue-900">{activePatients}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-4 shadow-md">
+                        <p className="text-sm text-alma-blue-900/60">Total Pacientes</p>
+                        <p className="text-2xl font-bold text-alma-blue-900">{patients.length}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-4 shadow-md">
+                        <p className="text-sm text-alma-blue-900/60">Total Recebido</p>
+                        <p className="text-2xl font-bold text-green-600">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalEarnings)}
+                        </p>
+                    </div>
+                    <div className="bg-gradient-to-br from-alma-magenta-700 to-alma-magenta-800 rounded-xl p-4 shadow-md text-white">
+                        <p className="text-sm text-white/70">Impacto Social</p>
+                        <p className="text-2xl font-bold">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                transactions.filter(t => t.payment_status === 'paid').reduce((sum, t) => sum + t.social_donation, 0)
                             )}
-                        </CardContent>
-                    </Card>
-
-                    {/* Profile Completion */}
-                    <Card className="border-0 shadow-lg">
-                        <CardHeader>
-                            <CardTitle className="text-lg text-alma-blue-900">Seu Perfil</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <Avatar className="w-16 h-16">
-                                    <AvatarImage src={user.photoUrl} />
-                                    <AvatarFallback className="bg-alma-lilac-200 text-xl">{initials}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <p className="font-semibold text-alma-blue-900">{user.fullName}</p>
-                                    <p className="text-sm text-alma-blue-900/60">CRP {user.crp}</p>
-                                </div>
-                            </div>
-
-                            <div className="bg-alma-lilac-50 rounded-xl p-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm text-alma-blue-900/70">Perfil completo</span>
-                                    <span className="text-sm font-medium text-alma-blue-900">30%</span>
-                                </div>
-                                <div className="h-2 bg-alma-lilac-200 rounded-full overflow-hidden">
-                                    <div className="h-full w-[30%] bg-alma-magenta-600 rounded-full"></div>
-                                </div>
-                            </div>
-
-                            <Link href="/psychologist/profile">
-                                <Button variant="outline" className="w-full" size="sm">
-                                    <Settings className="w-4 h-4 mr-2" />
-                                    Completar Perfil
-                                </Button>
-                            </Link>
-                        </CardContent>
-                    </Card>
+                        </p>
+                    </div>
                 </div>
+
+                {/* Tabbed Interface */}
+                <Tabs defaultValue="patients" className="space-y-6">
+                    <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-white shadow-md rounded-xl">
+                        <TabsTrigger
+                            value="profile"
+                            className="flex items-center gap-2 py-3 data-[state=active]:bg-alma-blue-900 data-[state=active]:text-white rounded-lg"
+                        >
+                            <User className="w-4 h-4" />
+                            <span className="hidden sm:inline">Perfil</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="patients"
+                            className="flex items-center gap-2 py-3 data-[state=active]:bg-alma-blue-900 data-[state=active]:text-white rounded-lg"
+                        >
+                            <Users className="w-4 h-4" />
+                            <span className="hidden sm:inline">Meus Pacientes</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="financial"
+                            className="flex items-center gap-2 py-3 data-[state=active]:bg-alma-blue-900 data-[state=active]:text-white rounded-lg"
+                        >
+                            <DollarSign className="w-4 h-4" />
+                            <span className="hidden sm:inline">Financeiro</span>
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="profile">
+                        <PsychologistProfileTab
+                            user={currentUser}
+                            onProfileUpdate={handleProfileUpdate}
+                        />
+                    </TabsContent>
+
+                    <TabsContent value="patients">
+                        <PsychologistPatientsTab patients={patients} />
+                    </TabsContent>
+
+                    <TabsContent value="financial">
+                        <PsychologistFinancial transactions={transactions} />
+                    </TabsContent>
+                </Tabs>
 
                 {/* Footer Actions */}
-                <div className="mt-8 flex flex-wrap gap-4">
-                    <Link href="/psychologist/financial">
-                        <Button variant="outline" size="sm">
-                            <CreditCard className="w-4 h-4 mr-2" />
-                            Financeiro
-                        </Button>
-                    </Link>
-                    <Link href="/psychologist/settings">
-                        <Button variant="outline" size="sm">
-                            <Settings className="w-4 h-4 mr-2" />
-                            Configurações
-                        </Button>
-                    </Link>
+                <div className="mt-8 pt-6 border-t border-alma-lilac-200">
                     <form action={handleSignOut}>
-                        <Button variant="ghost" size="sm" type="submit" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            type="submit"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
                             <LogOut className="w-4 h-4 mr-2" />
-                            Sair
+                            Sair da conta
                         </Button>
                     </form>
                 </div>

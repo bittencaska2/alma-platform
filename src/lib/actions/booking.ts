@@ -19,6 +19,139 @@ interface BookSlotResult {
     message?: string
 }
 
+interface LockSlotParams {
+    psychologistId: string
+    patientId: string
+    date: Date
+    startTime: string
+    endTime: string
+}
+
+interface LockSlotResult {
+    success: boolean
+    lockId?: string
+    error?: string
+    expiresAt?: Date
+}
+
+/**
+ * Lock a time slot temporarily (15 minutes) to prevent double-booking
+ * This should be called when user selects a time slot, before payment
+ */
+export async function lockSlot(params: LockSlotParams): Promise<LockSlotResult> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user || user.id !== params.patientId) {
+        return { success: false, error: 'Não autorizado' }
+    }
+
+    const bookingDate = params.date.toISOString().split('T')[0]
+    const lockExpiry = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes from now
+
+    try {
+        // First, try to clean up any expired locks (optional, don't fail if RPC doesn't exist)
+        const { error: cleanupError } = await supabase.rpc('cleanup_expired_locks')
+        if (cleanupError && !cleanupError.message.includes('function')) {
+            console.log('Cleanup locks warning:', cleanupError)
+        }
+
+        // Check if slot is already locked or confirmed
+        const { data: existing, error: checkError } = await supabase
+            .from('appointments')
+            .select('id, status_lock, lock_expires_at')
+            .eq('psychologist_id', params.psychologistId)
+            .eq('scheduled_date', bookingDate)
+            .eq('start_time', params.startTime)
+            .single()
+
+        if (existing) {
+            // If slot exists and is confirmed, it's unavailable
+            if (existing.status_lock === 'confirmed' || existing.status_lock === 'completed') {
+                return {
+                    success: false,
+                    error: 'Horário indisponível. Este horário já foi confirmado.'
+                }
+            }
+
+            // If slot is on hold and not expired, it's unavailable
+            if (existing.status_lock === 'holding' && existing.lock_expires_at) {
+                const expiryDate = new Date(existing.lock_expires_at)
+                if (expiryDate > new Date()) {
+                    return {
+                        success: false,
+                        error: 'Horário indisponível. Aguarde alguns minutos e tente novamente.'
+                    }
+                }
+            }
+
+            // If we get here, slot exists but is available (expired hold or available)
+            // Update it to holding
+            const { data: updated, error: updateError } = await supabase
+                .from('appointments')
+                .update({
+                    status_lock: 'holding',
+                    locked_at: new Date().toISOString(),
+                    locked_by: params.patientId,
+                    lock_expires_at: lockExpiry.toISOString(),
+                    patient_id: params.patientId
+                })
+                .eq('id', existing.id)
+                .select('id')
+                .single()
+
+            if (updateError) {
+                return { success: false, error: 'Erro ao reservar horário' }
+            }
+
+            return {
+                success: true,
+                lockId: updated.id,
+                expiresAt: lockExpiry
+            }
+        }
+
+        // Slot doesn't exist yet, create it with holding status
+        const { data: created, error: createError } = await supabase
+            .from('appointments')
+            .insert({
+                patient_id: params.patientId,
+                psychologist_id: params.psychologistId,
+                scheduled_date: bookingDate,
+                start_time: params.startTime,
+                end_time: params.endTime,
+                status_lock: 'holding',
+                locked_at: new Date().toISOString(),
+                locked_by: params.patientId,
+                lock_expires_at: lockExpiry.toISOString(),
+                status: 'pending' // Default appointment status
+            })
+            .select('id')
+            .single()
+
+        if (createError) {
+            console.error('Lock slot error:', createError)
+            if (createError.code === '23505') { // Unique violation - race condition
+                return {
+                    success: false,
+                    error: 'Horário indisponível. Alguém acabou de reservar este horário.'
+                }
+            }
+            return { success: false, error: createError.message }
+        }
+
+        return {
+            success: true,
+            lockId: created.id,
+            expiresAt: lockExpiry
+        }
+    } catch (e: any) {
+        console.error('Lock slot exception:', e)
+        return { success: false, error: e.message || 'Erro inesperado ao reservar horário' }
+    }
+}
+
+
 // Book a slot using the RPC function
 export async function bookSlot(params: BookSlotParams): Promise<BookSlotResult> {
     const supabase = await createClient()

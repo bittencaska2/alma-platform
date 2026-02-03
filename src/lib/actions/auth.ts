@@ -47,6 +47,9 @@ export async function signUp(formData: FormData) {
             await supabase.from('psychologists').upsert({
                 id: data.user.id,
                 crp: crp,
+                is_active: true,
+                is_verified: false,
+                session_price: 160.00,
             })
         } else if (userType === 'patient') {
             await supabase.from('patients').upsert({
@@ -82,6 +85,9 @@ export async function signIn(formData: FormData) {
         const storedUserType = data.user.user_metadata?.user_type || userType
 
         // Redirect to appropriate dashboard
+        if (storedUserType === 'admin') {
+            redirect('/admin/dashboard')
+        }
         redirect(storedUserType === 'psychologist' ? '/psychologist/dashboard' : '/patient/dashboard')
     }
 

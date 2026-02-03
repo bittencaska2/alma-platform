@@ -1,36 +1,56 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
     Heart,
-    Search,
-    Calendar,
-    MessageCircle,
-    CreditCard,
-    Settings,
+    User,
+    Stethoscope,
+    TrendingUp,
     LogOut,
-    Bell,
-    ChevronRight,
-    Clock,
-    Star
+    Bell
 } from 'lucide-react'
 import { signOut } from '@/lib/actions/auth'
+import { PatientProfileTab } from './PatientProfileTab'
+import { PatientTherapyTab } from './PatientTherapyTab'
+import { PatientImpactTab } from './PatientImpactTab'
 
 interface PatientDashboardProps {
     user: {
         id: string
         email: string
         fullName: string
-        photoUrl?: string
+        photoUrl?: string | null
+        age?: number | null
+        whatsapp?: string | null
     }
+    activePackage?: {
+        psychologist: {
+            id: string
+            fullName: string
+            crp: string
+            photoUrl?: string | null
+        }
+        sessionsRemaining: number
+        totalSessions: number
+        nextAppointment?: any
+    } | null
+    appointmentHistory?: any[]
+    transactions?: any[]
 }
 
-export function PatientDashboard({ user }: PatientDashboardProps) {
-    const initials = user.fullName
+export function PatientDashboard({
+    user,
+    activePackage = null,
+    appointmentHistory = [],
+    transactions = []
+}: PatientDashboardProps) {
+    const [currentUser, setCurrentUser] = useState(user)
+
+    const initials = currentUser.fullName
         .split(' ')
         .map(n => n[0])
         .slice(0, 2)
@@ -39,6 +59,10 @@ export function PatientDashboard({ user }: PatientDashboardProps) {
 
     const handleSignOut = async () => {
         await signOut()
+    }
+
+    const handleProfileUpdate = (updates: Partial<typeof user>) => {
+        setCurrentUser(prev => ({ ...prev, ...updates }))
     }
 
     return (
@@ -65,11 +89,11 @@ export function PatientDashboard({ user }: PatientDashboardProps) {
 
                             <div className="flex items-center gap-3">
                                 <Avatar className="w-9 h-9">
-                                    <AvatarImage src={user.photoUrl} />
+                                    <AvatarImage src={currentUser.photoUrl || undefined} />
                                     <AvatarFallback className="bg-alma-lilac-200 text-sm">{initials}</AvatarFallback>
                                 </Avatar>
                                 <div className="hidden sm:block">
-                                    <p className="text-sm font-medium text-alma-blue-900">{user.fullName}</p>
+                                    <p className="text-sm font-medium text-alma-blue-900">{currentUser.fullName}</p>
                                     <p className="text-xs text-alma-blue-900/60">Paciente</p>
                                 </div>
                             </div>
@@ -79,124 +103,73 @@ export function PatientDashboard({ user }: PatientDashboardProps) {
             </header>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Welcome Section */}
                 <div className="mb-8">
                     <h1 className="text-2xl sm:text-3xl font-bold text-alma-blue-900">
-                        Olá, {user.fullName.split(' ')[0]}! 👋
+                        Olá, {currentUser.fullName.split(' ')[0]}! 👋
                     </h1>
                     <p className="text-alma-blue-900/60 mt-1">
                         Bem-vindo à sua área de cuidado com a saúde mental
                     </p>
                 </div>
 
-                {/* Quick Actions */}
-                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <Link href="/patient/search">
-                        <Card className="hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer border-0 bg-gradient-to-br from-alma-blue-900 to-alma-blue-800 text-white">
-                            <CardContent className="p-6">
-                                <Search className="w-8 h-8 mb-3" />
-                                <h3 className="font-semibold text-lg">Buscar Psicólogo</h3>
-                                <p className="text-sm text-white/70 mt-1">Encontre o profissional ideal</p>
-                            </CardContent>
-                        </Card>
-                    </Link>
+                {/* Tabbed Interface */}
+                <Tabs defaultValue="therapy" className="space-y-6">
+                    <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-white shadow-md rounded-xl">
+                        <TabsTrigger
+                            value="profile"
+                            className="flex items-center gap-2 py-3 data-[state=active]:bg-alma-blue-900 data-[state=active]:text-white rounded-lg"
+                        >
+                            <User className="w-4 h-4" />
+                            <span className="hidden sm:inline">Meu Perfil</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="therapy"
+                            className="flex items-center gap-2 py-3 data-[state=active]:bg-alma-blue-900 data-[state=active]:text-white rounded-lg"
+                        >
+                            <Stethoscope className="w-4 h-4" />
+                            <span className="hidden sm:inline">Minha Terapia</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="impact"
+                            className="flex items-center gap-2 py-3 data-[state=active]:bg-alma-blue-900 data-[state=active]:text-white rounded-lg"
+                        >
+                            <TrendingUp className="w-4 h-4" />
+                            <span className="hidden sm:inline">Financeiro</span>
+                        </TabsTrigger>
+                    </TabsList>
 
-                    <Link href="/patient/appointments">
-                        <Card className="hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer border-0">
-                            <CardContent className="p-6">
-                                <Calendar className="w-8 h-8 mb-3 text-alma-magenta-700" />
-                                <h3 className="font-semibold text-lg text-alma-blue-900">Minhas Consultas</h3>
-                                <p className="text-sm text-alma-blue-900/60 mt-1">Agende e gerencie</p>
-                            </CardContent>
-                        </Card>
-                    </Link>
+                    <TabsContent value="profile">
+                        <PatientProfileTab
+                            user={currentUser}
+                            onProfileUpdate={handleProfileUpdate}
+                        />
+                    </TabsContent>
 
-                    <Link href="/patient/chat">
-                        <Card className="hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer border-0">
-                            <CardContent className="p-6">
-                                <MessageCircle className="w-8 h-8 mb-3 text-green-600" />
-                                <h3 className="font-semibold text-lg text-alma-blue-900">Chat</h3>
-                                <p className="text-sm text-alma-blue-900/60 mt-1">Converse com seu psicólogo</p>
-                            </CardContent>
-                        </Card>
-                    </Link>
+                    <TabsContent value="therapy">
+                        <PatientTherapyTab
+                            activePackage={activePackage}
+                            appointmentHistory={appointmentHistory}
+                        />
+                    </TabsContent>
 
-                    <Link href="/patient/financial">
-                        <Card className="hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer border-0">
-                            <CardContent className="p-6">
-                                <CreditCard className="w-8 h-8 mb-3 text-amber-600" />
-                                <h3 className="font-semibold text-lg text-alma-blue-900">Financeiro</h3>
-                                <p className="text-sm text-alma-blue-900/60 mt-1">Pagamentos e faturas</p>
-                            </CardContent>
-                        </Card>
-                    </Link>
-                </div>
-
-                {/* Content Grid */}
-                <div className="grid lg:grid-cols-3 gap-6">
-                    {/* Upcoming Appointments */}
-                    <Card className="lg:col-span-2 border-0 shadow-lg">
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle className="text-lg text-alma-blue-900">Próximas Consultas</CardTitle>
-                            <Link href="/patient/appointments" className="text-sm text-alma-magenta-700 hover:underline flex items-center gap-1">
-                                Ver todas <ChevronRight className="w-4 h-4" />
-                            </Link>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-center py-8 text-alma-blue-900/60">
-                                <Calendar className="w-12 h-12 mx-auto mb-3 text-alma-lilac-300" />
-                                <p>Você ainda não tem consultas agendadas</p>
-                                <Link href="/patient/search">
-                                    <Button className="mt-4" size="sm">
-                                        <Search className="w-4 h-4 mr-2" />
-                                        Buscar Psicólogo
-                                    </Button>
-                                </Link>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Quick Stats */}
-                    <div className="space-y-4">
-                        <Card className="border-0 shadow-lg">
-                            <CardContent className="p-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-alma-lilac-100 flex items-center justify-center">
-                                        <Clock className="w-6 h-6 text-alma-blue-900" />
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-bold text-alma-blue-900">0</p>
-                                        <p className="text-sm text-alma-blue-900/60">Sessões realizadas</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="border-0 shadow-lg bg-gradient-to-br from-alma-magenta-700 to-alma-magenta-800 text-white">
-                            <CardContent className="p-6">
-                                <Heart className="w-8 h-8 mb-3" />
-                                <h3 className="font-semibold">Meraki Social</h3>
-                                <p className="text-sm text-white/80 mt-1">
-                                    Suas consultas já ajudaram a doar <strong>R$ 0,00</strong> para crianças em vulnerabilidade.
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
+                    <TabsContent value="impact">
+                        <PatientImpactTab transactions={transactions} />
+                    </TabsContent>
+                </Tabs>
 
                 {/* Footer Actions */}
-                <div className="mt-8 flex flex-wrap gap-4">
-                    <Link href="/patient/settings">
-                        <Button variant="outline" size="sm">
-                            <Settings className="w-4 h-4 mr-2" />
-                            Configurações
-                        </Button>
-                    </Link>
+                <div className="mt-8 pt-6 border-t border-alma-lilac-200">
                     <form action={handleSignOut}>
-                        <Button variant="ghost" size="sm" type="submit" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            type="submit"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
                             <LogOut className="w-4 h-4 mr-2" />
-                            Sair
+                            Sair da conta
                         </Button>
                     </form>
                 </div>

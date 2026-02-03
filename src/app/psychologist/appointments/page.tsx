@@ -3,17 +3,17 @@ import { createClient } from '@/lib/supabase/server'
 import { PsychologistAppointments } from '@/components/psychologist/PsychologistAppointments'
 
 export default async function AppointmentsPage() {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user) {
-        redirect('/login')
-    }
+  if (!user) {
+    redirect('/login')
+  }
 
-    // Get psychologist's appointments
-    const { data: appointments } = await supabase
-        .from('appointments')
-        .select(`
+  // Get psychologist's appointments
+  const { data: appointments } = await supabase
+    .from('appointments')
+    .select(`
       id,
       scheduled_date,
       start_time,
@@ -27,8 +27,8 @@ export default async function AppointmentsPage() {
         )
       )
     `)
-        .eq('psychologist_id', user.id)
-        .order('scheduled_date', { ascending: true })
+    .eq('psychologist_id', user.id)
+    .order('scheduled_date', { ascending: true })
 
-    return <PsychologistAppointments appointments={appointments || []} />
+  return <PsychologistAppointments appointments={(appointments as any) || []} />
 }

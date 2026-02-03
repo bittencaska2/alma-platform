@@ -115,3 +115,97 @@ export function generateTimeSlots(startTime: string, endTime: string, durationMi
 
     return slots
 }
+
+/**
+ * Get next N available days for booking, respecting min hours ahead rule
+ * @param today Current date/time
+ * @param psychologistAvailability Array of available weekdays
+ * @param count How many days to return (default: 5)
+ * @param minHoursAhead Minimum hours ahead for first available slot (default: 24)
+ */
+export function getNextAvailableDays(
+    today: Date,
+    psychologistAvailability: { day_of_week: string }[],
+    count: number = 5,
+    minHoursAhead: number = 24
+): Date[] {
+    const minDate = new Date(today.getTime() + minHoursAhead * 60 * 60 * 1000)
+
+    const dayMap: { [key: string]: number } = {
+        'sunday': 0,
+        'monday': 1,
+        'tuesday': 2,
+        'wednesday': 3,
+        'thursday': 4,
+        'friday': 5,
+        'saturday': 6
+    }
+
+    const availableWeekdays = psychologistAvailability.map(
+        slot => dayMap[slot.day_of_week.toLowerCase()]
+    ).filter((day): day is number => day !== undefined)
+
+    const result: Date[] = []
+    let currentDate = new Date(minDate)
+    currentDate.setHours(0, 0, 0, 0)
+
+    // Safety limit to prevent infinite loop
+    let iterations = 0
+    const maxIterations = 100
+
+    while (result.length < count && iterations < maxIterations) {
+        const weekday = currentDate.getDay()
+        if (availableWeekdays.includes(weekday)) {
+            result.push(new Date(currentDate))
+        }
+        currentDate.setDate(currentDate.getDate() + 1)
+        iterations++
+    }
+
+    return result
+}
+
+/**
+ * Calculate how many times a specific weekday occurs from a date until month end
+ * Used for dynamic package pricing
+ */
+export function calculateRemainingSessionsInMonth(
+    selectedDate: Date,
+    selectedWeekday: number
+): number {
+    const year = selectedDate.getFullYear()
+    const month = selectedDate.getMonth()
+    const monthEnd = new Date(year, month + 1, 0)
+    monthEnd.setHours(23, 59, 59, 999)
+
+    let count = 0
+    const current = new Date(selectedDate)
+    current.setHours(0, 0, 0, 0)
+
+    while (current <= monthEnd) {
+        if (current.getDay() === selectedWeekday) {
+            count++
+        }
+        current.setDate(current.getDate() + 1)
+    }
+
+    return count
+}
+
+/**
+ * Format date for display in date strip
+ * @param date Date to format
+ * @returns Object with formatted day name and number
+ */
+export function formatDateForStrip(date: Date): { dayName: string; dayNumber: number; fullDate: string } {
+    const dayNames = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
+    const dayNumber = date.getDate()
+    const dayName = dayNames[date.getDay()]
+    const fullDate = date.toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long'
+    })
+
+    return { dayName, dayNumber, fullDate }
+}
